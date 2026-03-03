@@ -1,0 +1,972 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lista de Compras</title>
+  <style>
+    :root{
+      --bg:#0b0c10;
+      --card:#12141b;
+      --muted:#8b93a7;
+      --text:#e9ecf5;
+      --good:#41d48a;
+      --warn:#ffb020;
+      --bad:#ff5c5c;
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius2: 22px;
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; }
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      background: radial-gradient(1200px 800px at 10% 10%, #141829 0%, var(--bg) 55%) fixed;
+      color: var(--text);
+    }
+    .wrap{ max-width: 900px; margin: 0 auto; padding: 20px 14px 40px; }
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,0)) , var(--card);
+      border: 1px solid rgba(255,255,255,.06);
+      border-radius: var(--radius2);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    header{
+      padding: 18px 18px 14px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap: 12px;
+    }
+    header h1{ margin:0; font-size: 16px; letter-spacing: .2px; font-weight: 650; }
+    header .right{ display:flex; align-items:center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+      max-width: 420px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .status-dot{ width: 8px; height: 8px; border-radius: 999px; background: var(--muted); }
+
+    .btn{
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-size: 12px;
+      transition: transform .04s ease, background .15s ease, border-color .15s ease;
+    }
+    .btn:hover{ background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.16); }
+    .btn:active{ transform: translateY(1px); }
+    .btn:focus{ outline: 2px solid rgba(110,168,254,.45); outline-offset: 2px; }
+
+    .content{ padding: 14px 14px 18px; }
+    .row{ display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+    .input{
+      flex: 1 1 320px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+    }
+    .input input{
+      width: 100%;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .input input::placeholder{ color: rgba(233,236,245,.35); }
+
+    #btnAdd{
+      padding: 12px 12px;
+      border-radius: 14px;
+      font-weight: 650;
+    }
+
+    .seg{ display:flex; gap: 6px; align-items:center; }
+    .seg .btn{ border-radius: 999px; padding: 10px 12px; color: var(--muted); }
+    .seg .btn.active{
+      color: var(--text);
+      border-color: rgba(110,168,254,.55);
+      background: rgba(110,168,254,.15);
+    }
+
+    .toggle{
+      display:inline-flex;
+      align-items:center;
+      gap: 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.03);
+      font-size: 12px;
+      color: var(--muted);
+      user-select:none;
+    }
+    .toggle input{ width: 16px; height: 16px; }
+
+    ul{
+      margin: 12px 0 0;
+      padding: 0;
+      list-style: none;
+      border-top: 1px solid rgba(255,255,255,.06);
+    }
+
+    /* ===== Itens (grid) =====
+       Desktop/geral: checkbox + texto na mesma linha; usuário + arrastar + lixeira à direita
+    */
+    li{
+      display:grid;
+      grid-template-columns: 30px 1fr auto 44px 52px;
+      grid-template-areas: "chk txt by handle del";
+      column-gap: 10px;
+      align-items: center;
+      padding: 10px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.06);
+    }
+    li.dragging{ opacity: .6; }
+
+    .chk{ grid-area: chk; width: 22px; height: 22px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.03);
+      display:grid; place-items:center;
+      cursor:pointer;
+    }
+    .chk input{ width: 16px; height: 16px; cursor:pointer; }
+
+    .txt{
+      grid-area: txt;
+      min-width: 0;
+      width: 100%;
+      padding: 10px 10px;
+      border-radius: 12px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      text-transform: uppercase;
+    }
+    .txt:focus{
+      outline:none;
+      border-color: rgba(110,168,254,.55);
+      background: rgba(110,168,254,.08);
+    }
+
+    .by{
+      grid-area: by;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 12px;
+      max-width: 180px;
+      overflow:hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      justify-self: end;
+    }
+
+    .handle{
+      grid-area: handle;
+      width: 40px;
+      height: 34px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      display:grid;
+      place-items:center;
+      cursor: grab;
+      color: var(--muted);
+      user-select:none;
+      justify-self: start;
+    }
+    .handle:active{ cursor: grabbing; }
+
+    .iconbtn{
+      grid-area: del;
+      appearance:none;
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.04);
+      color: var(--muted);
+      width: 52px;
+      height: 34px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-size: 14px;
+      line-height: 1;
+      display:grid;
+      place-items:center;
+      padding: 0;
+      justify-self: end;
+    }
+    .iconbtn:hover{ color: var(--text); }
+
+    .done .txt{ color: rgba(233,236,245,.55); text-decoration: line-through; }
+
+    .hint{
+      margin-top: 10px;
+      color: rgba(233,236,245,.35);
+      font-size: 11px;
+      line-height: 1.35;
+    }
+    .empty{ padding: 18px 10px; color: var(--muted); font-size: 13px; text-align:center; }
+
+    /* Lock screen */
+    .overlay{
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      backdrop-filter: blur(10px);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+    }
+    .overlay.show{ display:flex; }
+    .lock{
+      width: min(440px, 100%);
+      border-radius: 22px;
+      border: 1px solid rgba(255,255,255,.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0)) , #10131c;
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+    .lock h2{ margin: 0 0 8px; font-size: 16px; font-weight: 700; }
+    .lock p{ margin: 0 0 14px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+    .pinrow{ display:flex; gap: 10px; align-items:center; flex-wrap: wrap; }
+    .pin{
+      flex: 1 1 200px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      padding: 12px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.03);
+    }
+    .pin input{
+      width: 100%;
+      border:0;
+      outline:0;
+      background: transparent;
+      color: var(--text);
+      font-size: 16px;
+      letter-spacing: .35em;
+      text-transform: uppercase;
+    }
+    .checkline{
+      margin-top: 10px;
+      display:flex;
+      gap: 10px;
+      align-items:center;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .footnote{ margin-top: 10px; color: rgba(233,236,245,.35); font-size: 11px; line-height: 1.35; }
+
+    /* ===== Mobile (controles + itens) ===== */
+    @media (max-width: 520px){
+      header{ flex-direction: column; align-items:flex-start; }
+      header .right{ width: 100%; justify-content:flex-start; }
+      .seg{ width: 100%; flex-wrap: wrap; }
+      #btnAdd{ flex: 1 1 120px; }
+
+      /* Linha 1: checkbox + texto
+         Linha 2: usuário + arrastar + lixeira
+      */
+      li{
+        grid-template-columns: 30px 1fr 44px 52px;
+        grid-template-areas:
+          "chk txt txt txt"
+          "by  by  handle del";
+        row-gap: 10px;
+      }
+      .by{ justify-self: start; max-width: 100%; }
+      .handle{ width: 44px; height: 40px; border-radius: 14px; }
+      .iconbtn{ height: 40px; border-radius: 14px; }
+    }
+  </style>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>Lista de Compras</h1>
+        <div class="right">
+          <span class="pill" title="Estado de sincronização">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="statusText">Bloqueado</span>
+          </span>
+          <button id="btnSync" class="btn" type="button" title="Puxar do Supabase agora">Sincronizar</button>
+          <button id="btnLogout" class="btn" type="button" title="Travar e pedir PIN de novo">Travar</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <div class="row">
+          <div class="input">
+            <input id="newItem" type="text" placeholder="Adicionar item…" autocomplete="off" />
+          </div>
+          <button id="btnAdd" class="btn" type="button">Adicionar</button>
+
+          <div class="seg" role="tablist" aria-label="Filtro">
+            <button class="btn active" data-filter="all" type="button">Todos</button>
+            <button class="btn" data-filter="todo" type="button">Pendentes</button>
+            <button class="btn" data-filter="done" type="button">Comprados</button>
+          </div>
+
+          <label class="toggle" title="Quando ligado, itens comprados ficam no final (config compartilhada)">
+            <input id="moveDoneToggle" type="checkbox" />
+            Marcados para o final
+          </label>
+
+          <button id="btnClearDone" class="btn" type="button">Limpar comprados</button>
+        </div>
+
+        <div class="hint">
+          Reordenar: arraste pelo ícone ☰. (Disponível no filtro <b>Todos</b>.)
+        </div>
+
+        <ul id="list"></ul>
+        <div id="empty" class="empty" style="display:none">Nada aqui ainda. Adicione o primeiro item 🙂</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay show" aria-modal="true" role="dialog">
+    <div class="lock">
+      <h2>Digite o PIN</h2>
+      <p>Digite seu PIN de <b>4 letras</b> para abrir a lista.</p>
+
+      <div class="pinrow">
+        <div class="pin">
+          <input id="pinInput" inputmode="text" maxlength="4" placeholder="XXXX" autocomplete="off" />
+        </div>
+        <button id="btnUnlock" class="btn" type="button">Abrir</button>
+      </div>
+
+      <label class="checkline">
+        <input id="rememberPin" type="checkbox" checked />
+        Lembrar neste dispositivo
+      </label>
+
+      <div id="pinError" class="footnote" style="display:none; color: rgba(255,92,92,.9);">
+        PIN inválido ou sem permissão.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    const SUPABASE_URL = "https://gzwpdeurmxnlksydsauw.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_SmQ4nitx0aS1jxfE9BwkAw_p1JJtHyu";
+
+    const LIST_ID = "main";
+    const STORAGE_PIN_KEY = "shopping_pin_v5";
+    const STORAGE_CACHE_KEY = "shopping_cache_v5";
+
+    const POLL_MS = 8000;
+    const SAVE_DEBOUNCE_MS = 500;
+
+    // ====== STATE ======
+    let supa = null;
+    let items = [];
+    let moveDoneToEnd = false;
+    let filter = "all";
+    let saving = false;
+    let lastRemoteUpdatedAt = null;
+    let pollTimer = null;
+    let currentUser = null; // { user_key, display_name }
+
+    // ====== ELEMENTS ======
+    const elList = document.getElementById("list");
+    const elEmpty = document.getElementById("empty");
+    const elNewItem = document.getElementById("newItem");
+    const elBtnAdd = document.getElementById("btnAdd");
+
+    const elStatusText = document.getElementById("statusText");
+    const elStatusDot = document.getElementById("statusDot");
+    const elBtnClearDone = document.getElementById("btnClearDone");
+    const elBtnSync = document.getElementById("btnSync");
+    const elBtnLogout = document.getElementById("btnLogout");
+    const elMoveDoneToggle = document.getElementById("moveDoneToggle");
+
+    const elOverlay = document.getElementById("overlay");
+    const elPinInput = document.getElementById("pinInput");
+    const elBtnUnlock = document.getElementById("btnUnlock");
+    const elRememberPin = document.getElementById("rememberPin");
+    const elPinError = document.getElementById("pinError");
+
+    // ====== HELPERS ======
+    function nowIso(){ return new Date().toISOString(); }
+
+    function setStatus(text, kind="idle"){
+      elStatusText.textContent = text;
+      if (kind === "ok") elStatusDot.style.background = "var(--good)";
+      else if (kind === "warn") elStatusDot.style.background = "var(--warn)";
+      else if (kind === "bad") elStatusDot.style.background = "var(--bad)";
+      else elStatusDot.style.background = "var(--muted)";
+    }
+
+    function normalizePin(pin){
+      return (pin || "").trim().toUpperCase().replace(/[^A-Z]/g, "").slice(0,4);
+    }
+
+    function debounce(fn, ms){
+      let t = null;
+      return (...args) => {
+        if (t) clearTimeout(t);
+        t = setTimeout(() => fn(...args), ms);
+      };
+    }
+
+    function genId(){
+      if (crypto && crypto.randomUUID) return crypto.randomUUID();
+      return (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    }
+
+    function persistCache(){
+      try{
+        localStorage.setItem(STORAGE_CACHE_KEY, JSON.stringify({
+          items, moveDoneToEnd, lastRemoteUpdatedAt, savedAt: nowIso()
+        }));
+      }catch(_){}
+    }
+
+    function loadCache(){
+      try{
+        const raw = localStorage.getItem(STORAGE_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed.items)) items = parsed.items;
+        if (typeof parsed.moveDoneToEnd === "boolean") moveDoneToEnd = parsed.moveDoneToEnd;
+        if (typeof parsed.lastRemoteUpdatedAt === "string") lastRemoteUpdatedAt = parsed.lastRemoteUpdatedAt;
+      }catch(_){}
+    }
+
+    function showOverlay(show){
+      elOverlay.classList.toggle("show", !!show);
+    }
+
+    function ensureMigrations(){
+      let changed = false;
+
+      const hasAnyPos = items.some(i => typeof i.pos === "number");
+      if (!hasAnyPos){
+        items = items.map((it, idx) => ({
+          ...it,
+          id: it.id || genId(),
+          pos: idx * 10,
+          text: (typeof it.text === "string" ? it.text.toUpperCase() : it.text),
+        }));
+        return true;
+      }
+
+      items = items.map((it, idx) => {
+        const out = { ...it };
+        if (!out.id) { out.id = genId(); changed = true; }
+        if (typeof out.pos !== "number"){ out.pos = idx * 10; changed = true; }
+        out.done = !!out.done;
+
+        if (typeof out.text === "string") {
+          const up = out.text.toUpperCase();
+          if (out.text !== up) { out.text = up; changed = true; }
+        }
+        return out;
+      });
+
+      return changed;
+    }
+
+    function cmp(a,b){ return a.pos - b.pos; }
+
+    function sortForDisplay(arr){
+      const out = [...arr].sort(cmp);
+      if (moveDoneToEnd){
+        out.sort((a,b) => (a.done === b.done) ? (a.pos - b.pos) : (a.done ? 1 : -1));
+      }
+      return out;
+    }
+
+    function filteredView(){
+      const sorted = sortForDisplay(items);
+      if (filter === "todo") return sorted.filter(i => !i.done);
+      if (filter === "done") return sorted.filter(i => !!i.done);
+      return sorted;
+    }
+
+    function reindexPositionsByCurrentDisplayOrder(){
+      const ordered = sortForDisplay(items);
+      for (let idx = 0; idx < ordered.length; idx++){
+        ordered[idx].pos = idx * 10;
+      }
+    }
+
+    function forceUppercaseInInput(inputEl){
+      const start = inputEl.selectionStart ?? inputEl.value.length;
+      const end = inputEl.selectionEnd ?? inputEl.value.length;
+      const up = inputEl.value.toUpperCase();
+      if (inputEl.value !== up){
+        inputEl.value = up;
+        try { inputEl.setSelectionRange(Math.min(start, up.length), Math.min(end, up.length)); } catch(_){}
+      }
+    }
+
+    // ====== UI RENDER ======
+    let sortableEnabled = false;
+
+    function render(){
+      const view = filteredView();
+      elMoveDoneToggle.checked = !!moveDoneToEnd;
+      sortableEnabled = (filter === "all");
+
+      elList.innerHTML = "";
+      elEmpty.style.display = (view.length === 0) ? "block" : "none";
+
+      for (const it of view){
+        const li = document.createElement("li");
+        li.dataset.id = it.id;
+        if (it.done) li.classList.add("done");
+
+        const chkWrap = document.createElement("label");
+        chkWrap.className = "chk";
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.checked = !!it.done;
+        chk.addEventListener("change", () => {
+          it.done = chk.checked;
+          it.updatedAt = Date.now();
+          if (moveDoneToEnd){ reindexPositionsByCurrentDisplayOrder(); }
+          persistCache();
+          render();
+          queueSave();
+        });
+        chkWrap.appendChild(chk);
+
+        const txt = document.createElement("input");
+        txt.className = "txt";
+        txt.value = it.text || "";
+        txt.placeholder = "Item…";
+        txt.addEventListener("input", () => {
+          forceUppercaseInInput(txt);
+          it.text = txt.value;
+          it.updatedAt = Date.now();
+          persistCache();
+          queueSave();
+        });
+        txt.addEventListener("keydown", (e) => {
+          if (e.key === "Enter"){
+            e.preventDefault();
+            elNewItem.focus();
+          }
+        });
+
+        const by = document.createElement("span");
+        by.className = "by";
+        by.title = "Usuário que inseriu";
+        by.textContent = it.by || "—";
+
+        const handle = document.createElement("div");
+        handle.className = "handle";
+        handle.title = sortableEnabled ? "Arrastar para reordenar" : "Reordenação disponível em 'Todos'";
+        handle.textContent = "☰";
+        if (!sortableEnabled){
+          handle.style.opacity = ".45";
+          handle.style.cursor = "not-allowed";
+        }
+
+        const del = document.createElement("button");
+        del.className = "iconbtn";
+        del.type = "button";
+        del.textContent = "🗑";
+        del.title = "Remover";
+        del.setAttribute("aria-label", "Remover");
+        del.addEventListener("click", () => {
+          const label = (it.text || "").trim() || "este item";
+          if (!confirm(`Confirma a remoção de "${label}"?`)) return;
+          items = items.filter(x => x.id !== it.id);
+          persistCache();
+          render();
+          queueSave();
+        });
+
+        li.appendChild(chkWrap);
+        li.appendChild(txt);
+        li.appendChild(by);
+        li.appendChild(handle);
+        li.appendChild(del);
+        elList.appendChild(li);
+      }
+
+      setupDragAndDrop();
+    }
+
+    // ====== Drag & Drop (HTML5) ======
+    function setupDragAndDrop(){
+      if (!sortableEnabled) return;
+
+      let dragId = null;
+
+      elList.querySelectorAll("li").forEach(li => {
+        const handle = li.querySelector(".handle");
+        handle.draggable = true;
+
+        handle.addEventListener("dragstart", (e) => {
+          dragId = li.dataset.id;
+          li.classList.add("dragging");
+          e.dataTransfer.effectAllowed = "move";
+          e.dataTransfer.setData("text/plain", dragId);
+        });
+
+        handle.addEventListener("dragend", () => {
+          li.classList.remove("dragging");
+        });
+
+        li.addEventListener("dragover", (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        });
+
+        li.addEventListener("drop", (e) => {
+          e.preventDefault();
+          const fromId = dragId || e.dataTransfer.getData("text/plain");
+          const toId = li.dataset.id;
+          if (!fromId || !toId || fromId === toId) return;
+
+          const fromEl = elList.querySelector(`li[data-id="${fromId}"]`);
+          const toEl = elList.querySelector(`li[data-id="${toId}"]`);
+          if (!fromEl || !toEl) return;
+
+          elList.insertBefore(fromEl, toEl);
+
+          const ids = [...elList.querySelectorAll("li")].map(x => x.dataset.id);
+          const map = new Map(items.map(i => [i.id, i]));
+          const ordered = ids.map(id => map.get(id)).filter(Boolean);
+
+          const leftovers = sortForDisplay(items).filter(i => !ids.includes(i.id));
+          const final = ordered.concat(leftovers);
+
+          for (let idx = 0; idx < final.length; idx++){
+            final[idx].pos = idx * 10;
+          }
+          items = final;
+
+          persistCache();
+          render();
+          queueSave();
+        });
+      });
+    }
+
+    // ====== SUPABASE IO ======
+    function createSupabaseClient(pin){
+      const { createClient } = window.supabase;
+      return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+        global: { headers: { "x-pin": pin } },
+      });
+    }
+
+    function decodeRemoteData(raw){
+      if (Array.isArray(raw)){
+        return { items: raw, settings: { moveDoneToEnd: false } };
+      }
+      if (raw && typeof raw === "object"){
+        const its = Array.isArray(raw.items) ? raw.items : [];
+        const s = (raw.settings && typeof raw.settings === "object") ? raw.settings : {};
+        return { items: its, settings: { moveDoneToEnd: !!s.moveDoneToEnd } };
+      }
+      return { items: [], settings: { moveDoneToEnd: false } };
+    }
+
+    async function fetchRemote(){
+      const { data, error } = await supa
+        .from("shopping_lists")
+        .select("data, updated_at")
+        .eq("list_id", LIST_ID)
+        .single();
+      if (error) throw error;
+
+      const decoded = decodeRemoteData(data.data);
+      return {
+        remoteItems: decoded.items,
+        remoteSettings: decoded.settings,
+        remoteUpdatedAt: data.updated_at
+      };
+    }
+
+    async function fetchCurrentUser(){
+      const { data, error } = await supa
+        .from("shopping_users")
+        .select("user_key, display_name")
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    async function applyRemoteIfNewer(){
+      const { remoteItems, remoteSettings, remoteUpdatedAt } = await fetchRemote();
+
+      if (!lastRemoteUpdatedAt || (remoteUpdatedAt && remoteUpdatedAt > lastRemoteUpdatedAt)){
+        items = remoteItems;
+        moveDoneToEnd = !!remoteSettings.moveDoneToEnd;
+        lastRemoteUpdatedAt = remoteUpdatedAt || lastRemoteUpdatedAt;
+
+        const migrated = ensureMigrations();
+        if (migrated){
+          reindexPositionsByCurrentDisplayOrder();
+          queueSave();
+        }
+
+        persistCache();
+        render();
+        setStatus(`Sincronizado${currentUser ? " • " + currentUser.display_name : ""}`, "ok");
+      }
+    }
+
+    async function saveRemote(){
+      if (saving || !supa) return;
+      saving = true;
+      setStatus(`Salvando…${currentUser ? " • " + currentUser.display_name : ""}`, "warn");
+
+      try{
+        const payload = { items, settings: { moveDoneToEnd: !!moveDoneToEnd } };
+
+        const { data, error } = await supa
+          .from("shopping_lists")
+          .update({ data: payload })
+          .eq("list_id", LIST_ID)
+          .select("updated_at")
+          .single();
+
+        if (error) throw error;
+
+        lastRemoteUpdatedAt = data.updated_at || lastRemoteUpdatedAt;
+        persistCache();
+        setStatus(`Salvo${currentUser ? " • " + currentUser.display_name : ""}`, "ok");
+      } catch (e){
+        console.error(e);
+        setStatus("Erro ao salvar", "bad");
+      } finally {
+        saving = false;
+      }
+    }
+
+    const queueSave = debounce(saveRemote, SAVE_DEBOUNCE_MS);
+
+    function startPolling(){
+      stopPolling();
+      pollTimer = setInterval(async () => {
+        try{
+          if (!supa) return;
+          if (saving) return;
+          await applyRemoteIfNewer();
+        } catch (_){
+          setStatus("Offline/erro de sync", "warn");
+        }
+      }, POLL_MS);
+
+      document.addEventListener("visibilitychange", async () => {
+        if (document.visibilityState === "visible"){
+          try { await applyRemoteIfNewer(); } catch(_){}
+        }
+      });
+    }
+
+    function stopPolling(){
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
+
+    // ====== ACTIONS ======
+    function addNewItem(){
+      const raw = elNewItem.value.trim();
+      if (!raw) return;
+
+      const text = raw.toUpperCase();
+
+      const minPos = items.length
+        ? Math.min(...items.map(i => (typeof i.pos === "number" ? i.pos : 0)))
+        : 0;
+
+      const newPos = minPos - 10;
+
+      items.push({
+        id: genId(),
+        text,
+        done: false,
+        pos: newPos,
+        by: currentUser?.display_name || "—",
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      });
+
+      reindexPositionsByCurrentDisplayOrder();
+
+      elNewItem.value = "";
+      persistCache();
+      render();
+      queueSave();
+
+      elNewItem.focus();
+    }
+
+    // ====== EVENTS ======
+    document.querySelectorAll('.seg .btn').forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll('.seg .btn').forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        filter = btn.dataset.filter;
+        render();
+      });
+    });
+
+    elMoveDoneToggle.addEventListener("change", () => {
+      moveDoneToEnd = elMoveDoneToggle.checked;
+      reindexPositionsByCurrentDisplayOrder();
+      persistCache();
+      render();
+      queueSave();
+    });
+
+    elNewItem.addEventListener("input", () => forceUppercaseInInput(elNewItem));
+
+    elNewItem.addEventListener("keydown", (e) => {
+      if (e.key === "Enter"){
+        e.preventDefault();
+        addNewItem();
+      }
+    });
+
+    elBtnAdd.addEventListener("click", addNewItem);
+
+    elBtnClearDone.addEventListener("click", () => {
+      const before = items.length;
+      items = items.filter(i => !i.done);
+      if (items.length === before) return;
+      reindexPositionsByCurrentDisplayOrder();
+      persistCache();
+      render();
+      queueSave();
+    });
+
+    elBtnSync.addEventListener("click", async () => {
+      if (!supa) return;
+      try{
+        setStatus("Sincronizando…", "warn");
+        await applyRemoteIfNewer();
+      } catch (e){
+        console.error(e);
+        setStatus("Falha ao sincronizar", "bad");
+      }
+    });
+
+    elBtnLogout.addEventListener("click", () => {
+      supa = null;
+      currentUser = null;
+      stopPolling();
+      setStatus("Bloqueado");
+      sessionStorage.removeItem(STORAGE_PIN_KEY);
+      localStorage.removeItem(STORAGE_PIN_KEY);
+      showOverlay(true);
+      elPinInput.value = "";
+      elPinInput.focus();
+    });
+
+    async function tryUnlock(pin, remember){
+      elPinError.style.display = "none";
+      setStatus("Conectando…", "warn");
+
+      supa = createSupabaseClient(pin);
+
+      try{
+        currentUser = await fetchCurrentUser();
+        await applyRemoteIfNewer();
+
+        showOverlay(false);
+        setStatus(`Sincronizado • ${currentUser.display_name}`, "ok");
+        startPolling();
+
+        sessionStorage.setItem(STORAGE_PIN_KEY, pin);
+        if (remember) localStorage.setItem(STORAGE_PIN_KEY, pin);
+        else localStorage.removeItem(STORAGE_PIN_KEY);
+
+        render();
+      } catch (e){
+        console.error(e);
+        supa = null;
+        currentUser = null;
+        setStatus("Bloqueado");
+        elPinError.style.display = "block";
+      }
+    }
+
+    function attachUnlockEvents(){
+      elPinInput.addEventListener("input", () => {
+        elPinInput.value = normalizePin(elPinInput.value);
+      });
+
+      elBtnUnlock.addEventListener("click", () => {
+        const pin = normalizePin(elPinInput.value);
+        if (pin.length !== 4) return;
+        tryUnlock(pin, elRememberPin.checked);
+      });
+
+      elPinInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter"){
+          e.preventDefault();
+          const pin = normalizePin(elPinInput.value);
+          if (pin.length !== 4) return;
+          tryUnlock(pin, elRememberPin.checked);
+        }
+      });
+    }
+
+    // ====== INIT ======
+    (function init(){
+      attachUnlockEvents();
+
+      loadCache();
+      ensureMigrations();
+      render();
+
+      const savedPin = normalizePin(localStorage.getItem(STORAGE_PIN_KEY) || sessionStorage.getItem(STORAGE_PIN_KEY));
+      if (savedPin && savedPin.length === 4){
+        elPinInput.value = savedPin;
+        tryUnlock(savedPin, true);
+      } else {
+        setStatus("Bloqueado");
+        showOverlay(true);
+        setTimeout(() => elPinInput.focus(), 50);
+      }
+    })();
+  </script>
+</body>
+</html>
