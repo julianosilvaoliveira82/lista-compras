@@ -77,10 +77,12 @@
     .btn:focus{ outline: 2px solid rgba(110,168,254,.45); outline-offset: 2px; }
 
     .btn.icon{
-      min-width: 44px;
-      padding: 10px 12px;
+      width: 44px;
+      padding: 10px 0;
       font-size: 16px;
       line-height: 1;
+      display:grid;
+      place-items:center;
     }
 
     .content{ padding: 14px 14px 18px; }
@@ -142,9 +144,7 @@
       border-top: 1px solid rgba(255,255,255,.06);
     }
 
-    /* ===== Itens (grid) =====
-       Desktop/geral: checkbox + texto na mesma linha; usuário + arrastar + lixeira à direita
-    */
+    /* ===== Itens (grid) ===== */
     li{
       display:grid;
       grid-template-columns: 30px 1fr auto 44px 52px;
@@ -165,8 +165,16 @@
     }
     .chk input{ width: 16px; height: 16px; cursor:pointer; }
 
-    .txt{
+    .textwrap{
       grid-area: txt;
+      display:flex;
+      align-items:center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .txt{
+      flex: 1 1 auto;
       min-width: 0;
       width: 100%;
       padding: 10px 10px;
@@ -182,6 +190,23 @@
       border-color: rgba(110,168,254,.55);
       background: rgba(110,168,254,.08);
     }
+    .txt[readonly]{
+      cursor: default;
+      opacity: .9;
+    }
+
+    .donedate{
+      flex: 0 0 auto;
+      padding: 6px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.08);
+      background: rgba(255,255,255,.03);
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+      display:none;
+    }
+    li.done .donedate{ display:inline-flex; }
 
     .by{
       grid-area: by;
@@ -233,7 +258,7 @@
     }
     .iconbtn:hover{ color: var(--text); }
 
-    .done .txt{ color: rgba(233,236,245,.55); text-decoration: line-through; }
+    li.done .txt{ color: rgba(233,236,245,.55); text-decoration: line-through; }
 
     .hint{
       margin-top: 10px;
@@ -253,8 +278,8 @@
       align-items:flex-start;
       justify-content:center;
       padding: 18px;
-      overflow:auto;
-      padding-top: 24px;
+      padding-top: calc(18px + env(safe-area-inset-top));
+      overflow: auto;
     }
     .overlay.show{ display:flex; }
     .lock{
@@ -298,16 +323,12 @@
     }
     .footnote{ margin-top: 10px; color: rgba(233,236,245,.35); font-size: 11px; line-height: 1.35; }
 
-    /* ===== Mobile (controles + itens) ===== */
     @media (max-width: 520px){
       header{ flex-direction: column; align-items:flex-start; }
       header .right{ width: 100%; justify-content:flex-start; }
       .seg{ width: 100%; flex-wrap: wrap; }
       #btnAdd{ flex: 1 1 120px; }
 
-      /* Linha 1: checkbox + texto
-         Linha 2: usuário + arrastar + lixeira
-      */
       li{
         grid-template-columns: 30px 1fr 44px 52px;
         grid-template-areas:
@@ -393,18 +414,16 @@
   </div>
 
   <script>
-    // ====== CONFIG ======
     const SUPABASE_URL = "https://gzwpdeurmxnlksydsauw.supabase.co";
     const SUPABASE_ANON_KEY = "sb_publishable_SmQ4nitx0aS1jxfE9BwkAw_p1JJtHyu";
 
     const LIST_ID = "main";
-    const STORAGE_PIN_KEY = "shopping_pin_v5";
-    const STORAGE_CACHE_KEY = "shopping_cache_v5";
+    const STORAGE_PIN_KEY = "shopping_pin_v6";
+    const STORAGE_CACHE_KEY = "shopping_cache_v6";
 
     const POLL_MS = 8000;
     const SAVE_DEBOUNCE_MS = 500;
 
-    // ====== STATE ======
     let supa = null;
     let items = [];
     let moveDoneToEnd = false;
@@ -412,9 +431,8 @@
     let saving = false;
     let lastRemoteUpdatedAt = null;
     let pollTimer = null;
-    let currentUser = null; // { user_key, display_name }
+    let currentUser = null;
 
-    // ====== ELEMENTS ======
     const elList = document.getElementById("list");
     const elEmpty = document.getElementById("empty");
     const elNewItem = document.getElementById("newItem");
@@ -433,7 +451,6 @@
     const elRememberPin = document.getElementById("rememberPin");
     const elPinError = document.getElementById("pinError");
 
-    // ====== HELPERS ======
     function nowIso(){ return new Date().toISOString(); }
 
     function setStatus(text, kind="idle"){
@@ -459,6 +476,11 @@
     function genId(){
       if (crypto && crypto.randomUUID) return crypto.randomUUID();
       return (Date.now().toString(36) + Math.random().toString(36).slice(2));
+    }
+
+    function formatDoneDate(ms){
+      try{ return "✓ " + new Date(ms).toLocaleDateString("pt-BR"); }
+      catch(_){ return "✓"; }
     }
 
     function persistCache(){
@@ -493,6 +515,8 @@
           ...it,
           id: it.id || genId(),
           pos: idx * 10,
+          done: !!it.done,
+          doneAt: it.done ? (it.doneAt || it.updatedAt || Date.now()) : null,
           text: (typeof it.text === "string" ? it.text.toUpperCase() : it.text),
         }));
         return true;
@@ -503,6 +527,15 @@
         if (!out.id) { out.id = genId(); changed = true; }
         if (typeof out.pos !== "number"){ out.pos = idx * 10; changed = true; }
         out.done = !!out.done;
+
+        if (out.done && !out.doneAt){
+          out.doneAt = out.updatedAt || Date.now();
+          changed = true;
+        }
+        if (!out.done && out.doneAt){
+          out.doneAt = null;
+          changed = true;
+        }
 
         if (typeof out.text === "string") {
           const up = out.text.toUpperCase();
@@ -548,7 +581,6 @@
       }
     }
 
-    // ====== UI RENDER ======
     let sortableEnabled = false;
 
     function render(){
@@ -572,18 +604,32 @@
         chk.addEventListener("change", () => {
           it.done = chk.checked;
           it.updatedAt = Date.now();
+
+          if (it.done) it.doneAt = it.doneAt || Date.now();
+          else it.doneAt = null;
+
           if (moveDoneToEnd){ reindexPositionsByCurrentDisplayOrder(); }
+
           persistCache();
           render();
           queueSave();
         });
         chkWrap.appendChild(chk);
 
+        const textWrap = document.createElement("div");
+        textWrap.className = "textwrap";
+
         const txt = document.createElement("input");
         txt.className = "txt";
         txt.value = it.text || "";
         txt.placeholder = "Item…";
+        txt.readOnly = !!it.done;
+
         txt.addEventListener("input", () => {
+          if (it.done){
+            txt.value = it.text || "";
+            return;
+          }
           forceUppercaseInInput(txt);
           it.text = txt.value;
           it.updatedAt = Date.now();
@@ -596,6 +642,14 @@
             elNewItem.focus();
           }
         });
+
+        const doneDate = document.createElement("span");
+        doneDate.className = "donedate";
+        doneDate.title = "Data da compra";
+        doneDate.textContent = it.done && it.doneAt ? formatDoneDate(it.doneAt) : "";
+
+        textWrap.appendChild(txt);
+        textWrap.appendChild(doneDate);
 
         const by = document.createElement("span");
         by.className = "by";
@@ -627,7 +681,7 @@
         });
 
         li.appendChild(chkWrap);
-        li.appendChild(txt);
+        li.appendChild(textWrap);
         li.appendChild(by);
         li.appendChild(handle);
         li.appendChild(del);
@@ -637,7 +691,6 @@
       setupDragAndDrop();
     }
 
-    // ====== Drag & Drop (HTML5) ======
     function setupDragAndDrop(){
       if (!sortableEnabled) return;
 
@@ -694,7 +747,6 @@
       });
     }
 
-    // ====== SUPABASE IO ======
     function createSupabaseClient(pin){
       const { createClient } = window.supabase;
       return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -814,7 +866,6 @@
       pollTimer = null;
     }
 
-    // ====== ACTIONS ======
     function addNewItem(){
       const raw = elNewItem.value.trim();
       if (!raw) return;
@@ -831,6 +882,7 @@
         id: genId(),
         text,
         done: false,
+        doneAt: null,
         pos: newPos,
         by: currentUser?.display_name || "—",
         createdAt: Date.now(),
@@ -847,7 +899,6 @@
       elNewItem.focus();
     }
 
-    // ====== EVENTS ======
     document.querySelectorAll('.seg .btn').forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll('.seg .btn').forEach(b => b.classList.remove("active"));
@@ -877,12 +928,11 @@
     elBtnAdd.addEventListener("click", addNewItem);
 
     elBtnClearDone.addEventListener("click", () => {
-      const doneCount = items.filter(i => !!i.done).length;
-      if (!doneCount) return;
+      const doneCount = items.filter(i => i.done).length;
+      if (doneCount === 0) return;
       if (!confirm(`Confirma limpar ${doneCount} item(ns) comprado(s)?`)) return;
-      const before = items.length;
+
       items = items.filter(i => !i.done);
-      if (items.length === before) return;
       reindexPositionsByCurrentDisplayOrder();
       persistCache();
       render();
@@ -961,7 +1011,6 @@
       });
     }
 
-    // ====== INIT ======
     (function init(){
       attachUnlockEvents();
 
