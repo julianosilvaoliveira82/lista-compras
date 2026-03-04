@@ -76,6 +76,13 @@
     .btn:active{ transform: translateY(1px); }
     .btn:focus{ outline: 2px solid rgba(110,168,254,.45); outline-offset: 2px; }
 
+    .btn.icon{
+      min-width: 44px;
+      padding: 10px 12px;
+      font-size: 16px;
+      line-height: 1;
+    }
+
     .content{ padding: 14px 14px 18px; }
     .row{ display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 
@@ -243,9 +250,11 @@
       background: rgba(0,0,0,.55);
       backdrop-filter: blur(10px);
       display:none;
-      align-items:center;
+      align-items:flex-start;
       justify-content:center;
       padding: 18px;
+      overflow:auto;
+      padding-top: 24px;
     }
     .overlay.show{ display:flex; }
     .lock{
@@ -324,8 +333,8 @@
             <span id="statusDot" class="status-dot"></span>
             <span id="statusText">Bloqueado</span>
           </span>
-          <button id="btnSync" class="btn" type="button" title="Puxar do Supabase agora">Sincronizar</button>
-          <button id="btnLogout" class="btn" type="button" title="Travar e pedir PIN de novo">Travar</button>
+          <button id="btnSync" class="btn icon" type="button" title="Sincronizar agora" aria-label="Sincronizar">⟳</button>
+          <button id="btnLogout" class="btn icon" type="button" title="Travar" aria-label="Travar">🔒</button>
         </div>
       </header>
 
@@ -868,6 +877,9 @@
     elBtnAdd.addEventListener("click", addNewItem);
 
     elBtnClearDone.addEventListener("click", () => {
+      const doneCount = items.filter(i => !!i.done).length;
+      if (!doneCount) return;
+      if (!confirm(`Confirma limpar ${doneCount} item(ns) comprado(s)?`)) return;
       const before = items.length;
       items = items.filter(i => !i.done);
       if (items.length === before) return;
